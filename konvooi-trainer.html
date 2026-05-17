@@ -1,0 +1,2391 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Konvooi Trainer</title>
+<style>
+  :root {
+    --bg: #0d1a24;
+    --bg-elev: #14252f;
+    --green: #1a4d6b;
+    --green-bright: #4a9fc7;
+    --cream: #ece4d3;
+    --cream-dim: #b8b0a0;
+    --rust: #c14d1c;
+    --line: #243845;
+    --shadow: 0 1px 0 rgba(255,255,255,0.04), 0 18px 40px -12px rgba(0,0,0,0.6);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    font-family: 'Iowan Old Style', 'Palatino', 'Georgia', serif;
+    background: var(--bg);
+    color: var(--cream);
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    background-image:
+      radial-gradient(ellipse at top, rgba(74, 159, 199, 0.10) 0%, transparent 60%),
+      radial-gradient(ellipse at bottom, rgba(150, 100, 180, 0.06) 0%, transparent 60%);
+    background-attachment: fixed;
+  }
+
+  /* faint paper-grain noise */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+    z-index: 1;
+  }
+
+  .app {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ====== HEADER ====== */
+  header {
+    padding: max(env(safe-area-inset-top), 14px) 18px 12px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+  }
+  .brand-name {
+    font-family: 'Futura', 'Trebuchet MS', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cream);
+  }
+  .brand-sub {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cream-dim);
+    margin-top: 4px;
+  }
+
+  .counter {
+    font-family: 'Futura', 'Trebuchet MS', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    color: var(--cream-dim);
+    text-align: right;
+    line-height: 1.3;
+  }
+  .counter strong {
+    color: var(--green-bright);
+    font-weight: 700;
+  }
+
+  /* ====== MAIN ====== */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 20px;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 18px;
+    font-family: 'Futura', 'Trebuchet MS', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .tag {
+    padding: 4px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--cream-dim);
+  }
+  .tag.diff-1 { color: var(--green-bright); border-color: rgba(46,160,90,0.4); }
+  .tag.diff-2 { color: #d9a843; border-color: rgba(217,168,67,0.4); }
+  .tag.diff-3 { color: var(--rust); border-color: rgba(193,77,28,0.4); }
+
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 28px 24px;
+    box-shadow: var(--shadow);
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* corner notches like an old paper card */
+  .card::before, .card::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--line);
+  }
+  .card::before { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+  .card::after { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+  .question {
+    font-size: clamp(20px, 4.5vw, 28px);
+    line-height: 1.35;
+    font-weight: 500;
+    color: var(--cream);
+    width: 100%;
+  }
+
+  .answer-block {
+    border-top: 1px dashed var(--line);
+    margin-top: 22px;
+    padding-top: 22px;
+    width: 100%;
+  }
+  .answer-label {
+    font-family: 'Futura', 'Trebuchet MS', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--green-bright);
+    margin-bottom: 8px;
+  }
+  .answer {
+    font-size: clamp(18px, 4vw, 24px);
+    line-height: 1.4;
+    font-weight: 600;
+    color: var(--cream);
+    font-style: italic;
+  }
+
+  .hint {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Futura', 'Trebuchet MS', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--cream-dim);
+    opacity: 0.6;
+    pointer-events: none;
+    animation: pulse 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.7; }
+  }
+
+  /* ====== STATE FADES ====== */
+  .fade-in {
+    animation: fadeIn 0.25s ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ====== FOOTER / CONTROLS ====== */
+  footer {
+    padding: 14px 18px max(env(safe-area-inset-bottom), 18px);
+    border-top: 1px solid var(--line);
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  footer::-webkit-scrollbar { display: none; }
+
+  .pill {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--cream-dim);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-family: 'Futura', 'Trebuchet MS', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+  .pill:active { transform: scale(0.97); }
+  .pill:hover { border-color: var(--green-bright); color: var(--cream); }
+  .pill.active {
+    background: var(--green);
+    border-color: var(--green-bright);
+    color: var(--cream);
+  }
+
+  /* ====== FILTERS PANEL ====== */
+  .filters {
+    position: fixed;
+    inset: 0;
+    background: rgba(13,31,23,0.96);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+    display: none;
+    flex-direction: column;
+    padding: max(env(safe-area-inset-top), 20px) 20px max(env(safe-area-inset-bottom), 20px);
+    overflow-y: auto;
+  }
+  .filters.open { display: flex; }
+
+  .filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .filters-title {
+    font-family: 'Futura', 'Trebuchet MS', sans-serif;
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .close-btn {
+    background: none;
+    border: none;
+    color: var(--cream);
+    font-size: 22px;
+    cursor: pointer;
+    padding: 4px 10px;
+    line-height: 1;
+  }
+
+  .filter-section {
+    margin-bottom: 22px;
+  }
+  .filter-section h3 {
+    font-family: 'Futura', 'Trebuchet MS', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cream-dim);
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  .chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .start-btn {
+    margin-top: auto;
+    background: var(--green);
+    border: 1px solid var(--green-bright);
+    color: var(--cream);
+    padding: 16px;
+    border-radius: 6px;
+    font-family: 'Futura', 'Trebuchet MS', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .start-btn:active { transform: scale(0.98); }
+
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--cream-dim);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="brand-name">Konvooi</div>
+      <div class="brand-sub">Trainer · richting Noorwegen</div>
+    </div>
+    <div class="counter">
+      <div>Gezien</div>
+      <div><strong id="cur">0</strong> / <span id="tot">0</span></div>
+    </div>
+  </header>
+
+  <main id="stage">
+    <!-- Vraag/antwoord renders hier -->
+  </main>
+
+  <footer>
+    <button class="pill" id="filterBtn">Filters</button>
+    <button class="pill" id="shuffleBtn">Shuffle</button>
+    <button class="pill" id="prevBtn">← Vorige</button>
+    <button class="pill" id="resetBtn">Reset</button>
+  </footer>
+</div>
+
+<!-- FILTERS PANEL -->
+<div class="filters" id="filtersPanel">
+  <div class="filters-header">
+    <div class="filters-title">Filters</div>
+    <button class="close-btn" id="closeFilters">×</button>
+  </div>
+
+  <div class="filter-section">
+    <h3>Categorieën</h3>
+    <div class="chip-group" id="categoryChips"></div>
+  </div>
+
+  <div class="filter-section">
+    <h3>Moeilijkheid</h3>
+    <div class="chip-group" id="difficultyChips">
+      <button class="pill active" data-diff="1">Niveau 1</button>
+      <button class="pill active" data-diff="2">Niveau 2</button>
+      <button class="pill active" data-diff="3">Niveau 3</button>
+    </div>
+  </div>
+
+  <button class="start-btn" id="applyFilters">Start oefening</button>
+</div>
+
+<script>
+// ============================================
+// DATA — vragen worden hier ingeladen
+// ============================================
+const VRAGEN = [
+  {
+    "id": 3,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse zanger zong 'Eenzaam zonder jou'?",
+    "antwoord": "Will Tura"
+  },
+  {
+    "id": 4,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Hoe heet de hoofdpersoon in 'De Witte' van Ernest Claes?",
+    "antwoord": "Lewie (Louis) Verheyen"
+  },
+  {
+    "id": 6,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Wie presenteerde jarenlang 'Tien Om Te Zien'?",
+    "antwoord": "Walter Capiau"
+  },
+  {
+    "id": 7,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 3,
+    "vraag": "Wat is de echte naam van Stef Bos?",
+    "antwoord": "Stef Bos (Stefanus Adrianus Bos)"
+  },
+  {
+    "id": 9,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Wie schreef het boek 'Het verdriet van België'?",
+    "antwoord": "Hugo Claus"
+  },
+  {
+    "id": 11,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse acteur speelde de hoofdrol in 'Loft' (2008)?",
+    "antwoord": "Koen De Bouw"
+  },
+  {
+    "id": 13,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 3,
+    "vraag": "Welke Vlaamse stripauteur tekende 'De Avonturen van Nero'?",
+    "antwoord": "Marc Sleen"
+  },
+  {
+    "id": 21,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 2,
+    "vraag": "Welk meer in Noorwegen is het grootste van het land?",
+    "antwoord": "Het Mjøsa (Mjøsameer)"
+  },
+  {
+    "id": 23,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 3,
+    "vraag": "Wat is de langste rivier van Noorwegen?",
+    "antwoord": "De Glomma (ook Glåma genoemd)"
+  },
+  {
+    "id": 24,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse fjord staat met de Nærøyfjord op de UNESCO Werelderfgoedlijst en is misschien wel de bekendste fjord ter wereld?",
+    "antwoord": "De Geirangerfjord"
+  },
+  {
+    "id": 28,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 3,
+    "vraag": "Wat is de hoogste berg van Noorwegen?",
+    "antwoord": "Galdhøpiggen (2469 m)"
+  },
+  {
+    "id": 32,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 1,
+    "vraag": "Wat is de munteenheid van Noorwegen?",
+    "antwoord": "De Noorse kroon (NOK)"
+  },
+  {
+    "id": 33,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke gekarameliseerde bruine kaas is een Noors nationaal symbool en wordt gemaakt van wei?",
+    "antwoord": "Brunost"
+  },
+  {
+    "id": 35,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse schilder schilderde 'De Schreeuw' (1893)?",
+    "antwoord": "Edvard Munch"
+  },
+  {
+    "id": 37,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welk traditioneel Noors gerecht bestaat uit gedroogde kabeljauw die in loog (lye) wordt geweekt?",
+    "antwoord": "Lutefisk"
+  },
+  {
+    "id": 38,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Welke Noorse componist schreef de muziek voor het toneelstuk 'Peer Gynt'?",
+    "antwoord": "Edvard Grieg"
+  },
+  {
+    "id": 39,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse sterke drank, vaak op smaak gebracht met karwij of dille, wordt traditioneel bij vis gedronken?",
+    "antwoord": "Aquavit (akvavit)"
+  },
+  {
+    "id": 41,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse stad staat bekend als 'de oliehoofdstad' van het land?",
+    "antwoord": "Stavanger"
+  },
+  {
+    "id": 42,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Hoe heet de Noorse toneelschrijver van onder andere 'Een poppenhuis' en 'Peer Gynt'?",
+    "antwoord": "Henrik Ibsen"
+  },
+  {
+    "id": 44,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welk Noors gerecht van gemarineerde zalm met dille en zout wordt vaak met mosterdsaus geserveerd?",
+    "antwoord": "Gravlaks (of gravlax)"
+  },
+  {
+    "id": 45,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke bergketen vormt de natuurlijke grens tussen Noorwegen en Zweden?",
+    "antwoord": "De Scandinavische bergen (Skanderna / Kjølen)"
+  },
+  {
+    "id": 48,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Hoe heette de eerste koning der Belgen?",
+    "antwoord": "Leopold I"
+  },
+  {
+    "id": 51,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische koning werd 'de bouwheer' genoemd?",
+    "antwoord": "Leopold II"
+  },
+  {
+    "id": 52,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "In welk jaar werd de euro als chartaal geld ingevoerd (de muntstukken en biljetten in handen)?",
+    "antwoord": "2002"
+  },
+  {
+    "id": 53,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Wie was de eerste vrouwelijke premier van het Verenigd Koninkrijk?",
+    "antwoord": "Margaret Thatcher"
+  },
+  {
+    "id": 54,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 3,
+    "vraag": "In welk jaar werd de Olympische vlag voor het eerst gebruikt?",
+    "antwoord": "1920 (in Antwerpen!)"
+  },
+  {
+    "id": 55,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 1,
+    "vraag": "Welk Vlaams stadje staat bekend om de Guldensporenslag in 1302?",
+    "antwoord": "Kortrijk"
+  },
+  {
+    "id": 61,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 2,
+    "vraag": "Welk Belgisch bier wordt gebrouwen door de paters van Westvleteren?",
+    "antwoord": "Westvleteren (de Westvleteren 12 is het bekendst)"
+  },
+  {
+    "id": 71,
+    "categorie": "taal_woordenschat",
+    "moeilijkheid": 2,
+    "vraag": "Wat betekent de Vlaamse uitdrukking 'de kogel is door de kerk'?",
+    "antwoord": "De beslissing is genomen / het is definitief"
+  },
+  {
+    "id": 88,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische wielrenner won 5 keer de Ronde van Frankrijk?",
+    "antwoord": "Eddy Merckx"
+  },
+  {
+    "id": 89,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische wielrenner stond bekend als 'de Kannibaal'?",
+    "antwoord": "Eddy Merckx"
+  },
+  {
+    "id": 91,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische voetbalclub speelt in het Jan Breydelstadion?",
+    "antwoord": "Club Brugge en Cercle Brugge"
+  },
+  {
+    "id": 100,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welk muziekgenre is ontstaan in Jamaica in de jaren '60?",
+    "antwoord": "Reggae (of ska, dat eerder was)"
+  },
+  {
+    "id": 101,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "In welke stad werd ABBA in 1974 winnaar van Eurovisie?",
+    "antwoord": "Brighton"
+  },
+  {
+    "id": 103,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische artiest brak internationaal door met 'Alors on danse'?",
+    "antwoord": "Stromae"
+  },
+  {
+    "id": 104,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke Finse componist schreef de beroemde 'Finlandia'?",
+    "antwoord": "Jean Sibelius"
+  },
+  {
+    "id": 109,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke regisseur maakte 'Pulp Fiction'?",
+    "antwoord": "Quentin Tarantino"
+  },
+  {
+    "id": 110,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "In welk jaar verscheen de eerste Star Wars-film?",
+    "antwoord": "1977"
+  },
+  {
+    "id": 112,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke serie speelt zich af in een fictieve gevangenis voor vrouwen in New York en heet 'Orange Is the New...'?",
+    "antwoord": "Black"
+  },
+  {
+    "id": 113,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke Deense regisseur is bekend van films zoals 'Dancer in the Dark' en 'Melancholia'?",
+    "antwoord": "Lars von Trier"
+  },
+  {
+    "id": 114,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 1,
+    "vraag": "Welke film won in 2020 de Oscar voor beste film en kwam uit Zuid-Korea?",
+    "antwoord": "Parasite"
+  },
+  {
+    "id": 115,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Hoe heet de hoofdpersoon in 'Breaking Bad'?",
+    "antwoord": "Walter White"
+  },
+  {
+    "id": 117,
+    "categorie": "auto_verkeer",
+    "moeilijkheid": 2,
+    "vraag": "Welk land heeft op delen van zijn snelwegen GEEN snelheidsbeperking?",
+    "antwoord": "Duitsland (op delen van de Autobahn)"
+  },
+  {
+    "id": 155,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 1,
+    "vraag": "In welke Noorse stad ligt de UNESCO-werelderfgoedwijk 'Bryggen' met kleurrijke houten huizen uit de Hanzetijd?",
+    "antwoord": "Bergen"
+  },
+  {
+    "id": 157,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Wie was de eerste president van de Verenigde Staten?",
+    "antwoord": "George Washington"
+  },
+  {
+    "id": 158,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "In welk jaar stierf koning Boudewijn?",
+    "antwoord": "1993"
+  },
+  {
+    "id": 159,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 3,
+    "vraag": "In welk jaar werd Julius Caesar vermoord?",
+    "antwoord": "44 voor Christus"
+  },
+  {
+    "id": 160,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 1,
+    "vraag": "Welk Romeins rijk viel in 1453 met de val van Constantinopel?",
+    "antwoord": "Het Byzantijnse Rijk (Oost-Romeinse Rijk)"
+  },
+  {
+    "id": 170,
+    "categorie": "taal_woordenschat",
+    "moeilijkheid": 3,
+    "vraag": "Wat betekent het Duitse spreekwoord 'Übung macht den Meister'?",
+    "antwoord": "Oefening baart kunst"
+  },
+  {
+    "id": 172,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 2,
+    "vraag": "Welk dier levert de melk voor de pittigere variant van brunost?",
+    "antwoord": "De geit"
+  },
+  {
+    "id": 175,
+    "categorie": "auto_verkeer",
+    "moeilijkheid": 2,
+    "vraag": "Welk Zweeds automerk staat bekend om veiligheid en heeft hoofdkwartier in Göteborg?",
+    "antwoord": "Volvo"
+  },
+  {
+    "id": 176,
+    "categorie": "auto_verkeer",
+    "moeilijkheid": 2,
+    "vraag": "Welk elektrisch automerk uit de VS heeft Noorwegen als één van zijn grootste markten per inwoner?",
+    "antwoord": "Tesla"
+  },
+  {
+    "id": 177,
+    "categorie": "auto_verkeer",
+    "moeilijkheid": 3,
+    "vraag": "Hoeveel tunnels heeft Noorwegen ongeveer in zijn wegennet (door de bergachtige geografie)?",
+    "antwoord": "Meer dan 1000 wegtunnels"
+  },
+  {
+    "id": 178,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke Zweedse popgroep won Eurovisie in 1974 met 'Waterloo'?",
+    "antwoord": "ABBA"
+  },
+  {
+    "id": 180,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welk beroemd Noors orkestwerk van Grieg bevat de delen 'Ochtendstemming' en 'In de hal van de Bergkoning'?",
+    "antwoord": "De Peer Gynt suite"
+  },
+  {
+    "id": 181,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "In welke film loopt Forrest Gump als hoofdpersoon dwars door de Amerikaanse geschiedenis?",
+    "antwoord": "Forrest Gump"
+  },
+  {
+    "id": 182,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke trilogie van Sergio Leone speelt zich af in het Wilde Westen met Clint Eastwood?",
+    "antwoord": "De Dollar-trilogie (Per un pugno di dollari, Per qualche dollaro in più, Il buono il brutto il cattivo)"
+  },
+  {
+    "id": 186,
+    "categorie": "format_categorie",
+    "moeilijkheid": 2,
+    "vraag": "Welke van deze ligt NIET in Noorwegen: Geirangerfjord, Nærøyfjord, Sognefjord, Eyjafjallajökull?",
+    "antwoord": "Eyjafjallajökull (ligt in IJsland)"
+  },
+  {
+    "id": 191,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 2,
+    "vraag": "Welke kwam eerst: Eerste Wereldoorlog of de Russische Revolutie van 1917?",
+    "antwoord": "Eerste Wereldoorlog (begon in 1914)"
+  },
+  {
+    "id": 193,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 2,
+    "vraag": "Welk gebouw is ouder: de Nidarosdom in Trondheim of de Notre-Dame in Parijs?",
+    "antwoord": "De Nidarosdom (start bouw 1070; Notre-Dame: 1163)"
+  },
+  {
+    "id": 195,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 2,
+    "vraag": "Welke wielerklassieker werd het eerst gereden: Ronde van Vlaanderen of Parijs-Roubaix?",
+    "antwoord": "Parijs-Roubaix (1896; Ronde van Vlaanderen: 1913)"
+  },
+  {
+    "id": 201,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische doelman werd in de jaren '80 driemaal tot 's werelds beste doelman gekroond en speelde bij Bayern München?",
+    "antwoord": "Jean-Marie Pfaff"
+  },
+  {
+    "id": 202,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Op welk WK voetbal eindigden de Rode Duivels als derde?",
+    "antwoord": "WK 2018 in Rusland"
+  },
+  {
+    "id": 203,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische middenvelder werd geboren in Drongen, speelde 10 jaar bij Manchester City en transfereerde in 2025 naar Napoli?",
+    "antwoord": "Kevin De Bruyne"
+  },
+  {
+    "id": 204,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische aanvaller, geboren in Antwerpen, is topschutter aller tijden van de Rode Duivels?",
+    "antwoord": "Romelu Lukaku"
+  },
+  {
+    "id": 205,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische doelman won met Real Madrid meerdere Champions League-titels?",
+    "antwoord": "Thibaut Courtois"
+  },
+  {
+    "id": 206,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische voetballer met de bijnaam 'Eden' speelde lang bij Chelsea en daarna Real Madrid?",
+    "antwoord": "Eden Hazard"
+  },
+  {
+    "id": 207,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "In welk jaar bereikten de Rode Duivels de finale van het Europees Kampioenschap voetbal, hun beste EK-resultaat ooit?",
+    "antwoord": "1980 (verloren van West-Duitsland)"
+  },
+  {
+    "id": 208,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische spelmaker met Italiaanse roots was voetballer van het jaar in België én speelde voor Inter en Torino?",
+    "antwoord": "Enzo Scifo"
+  },
+  {
+    "id": 209,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische topclub speelt zijn thuiswedstrijden in het Lotto Park (vroeger Constant Vanden Stock Stadion)?",
+    "antwoord": "RSC Anderlecht"
+  },
+  {
+    "id": 210,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische voetbalclub speelt in stadion Sclessin?",
+    "antwoord": "Standard Luik"
+  },
+  {
+    "id": 211,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische bondscoach loodste de Rode Duivels naar het WK 2014 en stond bekend om zijn emotionele bank-coaching?",
+    "antwoord": "Marc Wilmots"
+  },
+  {
+    "id": 212,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke twee Belgische wielrenners delen het record van vier overwinningen in Parijs-Roubaix?",
+    "antwoord": "Tom Boonen en Roger De Vlaeminck"
+  },
+  {
+    "id": 213,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische wielrenner uit Mol won onder andere de Ronde van Vlaanderen, Parijs-Roubaix en Milaan-San Remo, en wordt 'Tornado Tom' genoemd?",
+    "antwoord": "Tom Boonen"
+  },
+  {
+    "id": 214,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische wielrenner won olympisch goud op de weg in Rio 2016?",
+    "antwoord": "Greg Van Avermaet"
+  },
+  {
+    "id": 215,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "In welk jaar werd Remco Evenepoel wereldkampioen op de weg in Wollongong, Australië?",
+    "antwoord": "2022"
+  },
+  {
+    "id": 216,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische wielrenner uit Schepdaal won de Vuelta in 2022 en werd in datzelfde jaar wereldkampioen op de weg?",
+    "antwoord": "Remco Evenepoel"
+  },
+  {
+    "id": 217,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Waalse wielrenner won onder andere de Amstel Gold Race, de Waalse Pijl en Luik-Bastenaken-Luik in hetzelfde voorjaar (2011)?",
+    "antwoord": "Philippe Gilbert"
+  },
+  {
+    "id": 218,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische wielrenner uit de jaren '60 en '70 stond bekend als 'de Keizer van Herentals'?",
+    "antwoord": "Rik Van Looy"
+  },
+  {
+    "id": 219,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische wielrenster werd in 2023 wereldkampioene op de weg in Glasgow?",
+    "antwoord": "Lotte Kopecky"
+  },
+  {
+    "id": 220,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische wielrenner stond bekend als 'Monsieur Paris-Roubaix' en won deze klassieker in 1972, 1974, 1975 en 1977?",
+    "antwoord": "Roger De Vlaeminck"
+  },
+  {
+    "id": 221,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Hoeveel keer won Eddy Merckx de Ronde van Vlaanderen?",
+    "antwoord": "2 keer (1969 en 1975)"
+  },
+  {
+    "id": 222,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische wielrenner uit Lombardsijde werd 2 keer wereldkampioen op de weg (1976 en 1981) en won de Vuelta van 1977 met 13 ritzeges?",
+    "antwoord": "Freddy Maertens"
+  },
+  {
+    "id": 223,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "In welke Belgische stad start en eindigt de Ronde van Vlaanderen sinds enkele jaren?",
+    "antwoord": "Start in Brugge, aankomst in Oudenaarde"
+  },
+  {
+    "id": 224,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke beruchte helling in de Vlaamse Ardennen heeft kasseien en stijgt tot 22%, en is een vaste klim in de Ronde van Vlaanderen?",
+    "antwoord": "De Koppenberg"
+  },
+  {
+    "id": 226,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "In welk jaar werd Noorwegen onafhankelijk van Zweden?",
+    "antwoord": "1905"
+  },
+  {
+    "id": 227,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 1,
+    "vraag": "Welke datum is de nationale feestdag van Noorwegen (Dag van de Grondwet)?",
+    "antwoord": "17 mei"
+  },
+  {
+    "id": 228,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Hoe heet de huidige koning van Noorwegen (regerend sinds 1991)?",
+    "antwoord": "Harald V"
+  },
+  {
+    "id": 229,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 1,
+    "vraag": "Welk Noors merk maakt de bekende KitKat-achtige chocoladereep die elke wandelaar in Noorwegen kent?",
+    "antwoord": "Kvikk Lunsj (van Freia)"
+  },
+  {
+    "id": 230,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Hoe heten de oorspronkelijke bewoners van Noord-Noorwegen, met een eigen taal en cultuur?",
+    "antwoord": "De Samen (Sami, vroeger Lappen genoemd)"
+  },
+  {
+    "id": 231,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Welke Noorse poolontdekkingsreiziger bereikte als eerste de Zuidpool in 1911?",
+    "antwoord": "Roald Amundsen"
+  },
+  {
+    "id": 233,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse band brak in 1985 wereldwijd door met 'Take On Me'?",
+    "antwoord": "a-ha"
+  },
+  {
+    "id": 234,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Wat is het Noorse nationale gerecht: stoofpot van lam en kool?",
+    "antwoord": "Fårikål"
+  },
+  {
+    "id": 236,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische voetballer kreeg in Duitsland de bijnaam 'Das Kampfschwein' bij Schalke 04?",
+    "antwoord": "Marc Wilmots"
+  },
+  {
+    "id": 237,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "In welk stadion speelt Club Brugge zijn thuiswedstrijden?",
+    "antwoord": "Jan Breydelstadion"
+  },
+  {
+    "id": 238,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Hoeveel keer werd RSC Anderlecht Belgisch landskampioen in totaal?",
+    "antwoord": "34 keer (recordhouder)"
+  },
+  {
+    "id": 239,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke kleur heeft het traditionele uittenue van de Rode Duivels?",
+    "antwoord": "Geel"
+  },
+  {
+    "id": 240,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische voetballer scoorde het beslissende doelpunt tegen Japan op het WK 2018 in de toegevoegde tijd?",
+    "antwoord": "Nacer Chadli"
+  },
+  {
+    "id": 241,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke jaarlijkse Belgische voetbalprijs gaat naar de beste speler van het kampioenschap?",
+    "antwoord": "De Gouden Schoen"
+  },
+  {
+    "id": 242,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "Welke Spaanse bondscoach loodste de Rode Duivels van 2016 tot 2022?",
+    "antwoord": "Roberto Martínez"
+  },
+  {
+    "id": 243,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische verdediger was kapitein van Manchester City en werd later trainer bij Anderlecht en Burnley?",
+    "antwoord": "Vincent Kompany"
+  },
+  {
+    "id": 244,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Door welke Belgische regio loopt het grootste deel van de Ronde van Vlaanderen?",
+    "antwoord": "De Vlaamse Ardennen"
+  },
+  {
+    "id": 245,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "In welk Brussels stadion spelen de Rode Duivels hun thuiswedstrijden?",
+    "antwoord": "Koning Boudewijnstadion"
+  },
+  {
+    "id": 246,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische tennister was wereld nummer 1 en won 4 Grand Slams, waaronder meerdere keren Roland Garros?",
+    "antwoord": "Justine Henin"
+  },
+  {
+    "id": 247,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische tennister won 4 Grand Slams en stopte twee keer met tennis tijdens haar carrière?",
+    "antwoord": "Kim Clijsters"
+  },
+  {
+    "id": 248,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke wielerklassieker eindigt traditioneel op de wielerbaan van Roubaix in Noord-Frankrijk?",
+    "antwoord": "Parijs-Roubaix"
+  },
+  {
+    "id": 249,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische wielrenner won olympisch goud op zowel de wegrit als de tijdrit in Parijs 2024?",
+    "antwoord": "Remco Evenepoel"
+  },
+  {
+    "id": 250,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke beruchte kasseihelling in Geraardsbergen was lang de scherprechter van de Ronde van Vlaanderen?",
+    "antwoord": "De Muur van Geraardsbergen (Kapelmuur)"
+  },
+  {
+    "id": 251,
+    "categorie": "sport",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische voetbalclub speelt in stadion De Bosuil?",
+    "antwoord": "Royal Antwerp FC"
+  },
+  {
+    "id": 252,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Brusselse voetbalclub werd in 2025 Belgisch landskampioen, jaren na hun glorieperiode?",
+    "antwoord": "Union Saint-Gilloise"
+  },
+  {
+    "id": 254,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische spits geboren in 1993 in Antwerpen is topschutter aller tijden bij de Rode Duivels?",
+    "antwoord": "Romelu Lukaku"
+  },
+  {
+    "id": 255,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische wielrenner uit de jaren '50 won drie keer het wereldkampioenschap op de weg (1949, 1956 en 1957)?",
+    "antwoord": "Rik Van Steenbergen"
+  },
+  {
+    "id": 256,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische voetbalclub deelt de stad Brugge met Club Brugge als stadsrivaal?",
+    "antwoord": "Cercle Brugge"
+  },
+  {
+    "id": 259,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische voetballer is recordhouder qua aantal interlands voor de Rode Duivels?",
+    "antwoord": "Jan Vertonghen"
+  },
+  {
+    "id": 260,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "Wie organiseerde de eerste Ronde van Vlaanderen in 1913 en wordt beschouwd als de 'vader' van die wedstrijd?",
+    "antwoord": "Karel Van Wijnendaele"
+  },
+  {
+    "id": 261,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse stad in het hoge noorden staat bekend als de 'poort tot de Noordkaap'?",
+    "antwoord": "Tromsø"
+  },
+  {
+    "id": 263,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse stad in de fjorden staat bekend als 'de poort tot de fjorden' en heeft een beroemde funiculaire (Fløibanen)?",
+    "antwoord": "Bergen"
+  },
+  {
+    "id": 264,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Welke Noorse poolontdekkingsreiziger schreef het boek 'Fram over Polhavet' over zijn poolexpeditie?",
+    "antwoord": "Fridtjof Nansen"
+  },
+  {
+    "id": 265,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke beroemde Noorse rotsformatie hangt 604 meter boven de Lysefjord en wordt 'Preekstoel' genoemd?",
+    "antwoord": "Preikestolen (Pulpit Rock)"
+  },
+  {
+    "id": 266,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 1,
+    "vraag": "Welke beroemde Noorse skischans in Oslo wordt gebruikt voor wereldbekers schansspringen?",
+    "antwoord": "Holmenkollen"
+  },
+  {
+    "id": 267,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse wintersport-disciplines domineerden Noren tijdens de Olympische Spelen van Lillehammer 1994?",
+    "antwoord": "Langlaufen (cross-country skiing) en biatlon"
+  },
+  {
+    "id": 269,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Welke Noorse misdaadschrijver creëerde het personage detective Harry Hole?",
+    "antwoord": "Jo Nesbø"
+  },
+  {
+    "id": 270,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Hoe heet de regering van de Noorse hoofdstad: Storting, Folketing of Riksdag?",
+    "antwoord": "Storting (Noors parlement)"
+  },
+  {
+    "id": 271,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke organisatie deelt jaarlijks de Nobelprijs voor de Vrede uit in Oslo?",
+    "antwoord": "Het Noorse Nobelcomité"
+  },
+  {
+    "id": 272,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 1,
+    "vraag": "Welke Noor was de eerste die de Zuidpool bereikte in december 1911?",
+    "antwoord": "Roald Amundsen"
+  },
+  {
+    "id": 273,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Hoe heet de Noorse archipel in de Noordelijke IJszee waar Spitsbergen het hoofdeiland van is?",
+    "antwoord": "Svalbard"
+  },
+  {
+    "id": 275,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "In welke Noorse stad werden de Olympische Winterspelen van 1994 gehouden?",
+    "antwoord": "Lillehammer"
+  },
+  {
+    "id": 276,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 1,
+    "vraag": "Welk Noors type vissersboot wordt al sinds de Vikingtijd gebouwd in het noorden van Noorwegen?",
+    "antwoord": "De Nordlandsboot"
+  },
+  {
+    "id": 278,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse stad heet ook 'de stad van de Hanze' en heeft een kleurrijke kade die op de UNESCO-lijst staat?",
+    "antwoord": "Bergen (Bryggen)"
+  },
+  {
+    "id": 279,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welk olieveld in de Noordzee, ontdekt in 1969, maakte Noorwegen tot een grote olieproducent?",
+    "antwoord": "Ekofisk"
+  },
+  {
+    "id": 280,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 1,
+    "vraag": "Welke Noor schilderde een serie schilderijen genaamd 'Levensfries', waarvan 'De Schreeuw' het bekendste is?",
+    "antwoord": "Edvard Munch"
+  },
+  {
+    "id": 281,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Welke Noorse wiskundige uit de 19e eeuw werd vernoemd in de Abelprijs voor wiskunde?",
+    "antwoord": "Niels Henrik Abel"
+  },
+  {
+    "id": 282,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 1,
+    "vraag": "Welke Noorse stad ligt aan de Trondheimfjord en heeft de oudste kathedraal van Scandinavië?",
+    "antwoord": "Trondheim (Nidarosdom)"
+  },
+  {
+    "id": 283,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse fjord is 's werelds langste en diepste, en doorkruist West-Noorwegen?",
+    "antwoord": "Sognefjord (ongeveer 205 km lang, tot 1300 m diep)"
+  },
+  {
+    "id": 285,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse hoogvlakte heeft het grootste bergplateau van Europa en is een sleutel tot Noorse waterkracht?",
+    "antwoord": "Hardangervidda"
+  },
+  {
+    "id": 289,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 2,
+    "vraag": "Welke brug verbindt Denemarken en Zweden over de Sont?",
+    "antwoord": "De Sontbrug (Øresundbrug)"
+  },
+  {
+    "id": 297,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 3,
+    "vraag": "Welk Duits eiland in de Oostzee staat bekend om zijn krijtrotsen?",
+    "antwoord": "Rügen"
+  },
+  {
+    "id": 302,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 3,
+    "vraag": "Welk Noors eiland ligt halverwege tussen Noorwegen en IJsland en heeft een actieve vulkaan?",
+    "antwoord": "Jan Mayen (vulkaan: Beerenberg)"
+  },
+  {
+    "id": 306,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 1,
+    "vraag": "Welke Vlaamse band scoorde een hit met 'Daar gaat ze' in de jaren '90?",
+    "antwoord": "Clouseau"
+  },
+  {
+    "id": 307,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 1,
+    "vraag": "Welke Vlaamse zangeres won Eurovisie in 1986 met 'J'aime la vie'?",
+    "antwoord": "Sandra Kim"
+  },
+  {
+    "id": 308,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse band scoorde een hit met 'Mia' in 1991?",
+    "antwoord": "Gorki"
+  },
+  {
+    "id": 309,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke twee broers vormen samen Clouseau?",
+    "antwoord": "Koen en Kris Wauters"
+  },
+  {
+    "id": 311,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse zanger werd wereldberoemd met klassieke crossover-albums?",
+    "antwoord": "Helmut Lotti"
+  },
+  {
+    "id": 312,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 1,
+    "vraag": "Welke Vlaamse komiek werd bekend met de hit 'Bakske vol met stro' (1979)?",
+    "antwoord": "Urbanus"
+  },
+  {
+    "id": 313,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse rockzanger en frontman van TC Matic werd bekend met 'Oh La La La'?",
+    "antwoord": "Arno (Arno Hintjens)"
+  },
+  {
+    "id": 314,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 1,
+    "vraag": "Welk Vlaams tv-programma met sketches volgt een fictieve voetbalploeg?",
+    "antwoord": "F.C. De Kampioenen"
+  },
+  {
+    "id": 315,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse cabaretier en zanger is bekend om eigenzinnige teksten en nummers als 'Liefde voor muziek' (niet het programma — een lied)?",
+    "antwoord": "Raymond van het Groenewoud"
+  },
+  {
+    "id": 317,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse meidengroep met drie zangeressen werd vanaf 1998 een grote naam in kindermuziek?",
+    "antwoord": "K3"
+  },
+  {
+    "id": 318,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 3,
+    "vraag": "Welke Vlaamse schrijver schreef 'De Helaasheid der Dingen'?",
+    "antwoord": "Dimitri Verhulst"
+  },
+  {
+    "id": 319,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische stripreeks volgt een agent met de naam Lambik en zijn vrienden Suske, Wiske en tante Sidonia?",
+    "antwoord": "Suske en Wiske"
+  },
+  {
+    "id": 323,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "In welk jaar viel de Sovjet-Unie uiteen?",
+    "antwoord": "1991"
+  },
+  {
+    "id": 325,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische koning deed in 1951 troonsafstand ten voordele van zijn zoon Boudewijn?",
+    "antwoord": "Leopold III"
+  },
+  {
+    "id": 327,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Welke Britse koningin overleed in september 2022 na een regeerperiode van 70 jaar?",
+    "antwoord": "Elizabeth II"
+  },
+  {
+    "id": 330,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 3,
+    "vraag": "Welke veldslag in 1815 maakte een einde aan Napoleons macht?",
+    "antwoord": "De Slag bij Waterloo"
+  },
+  {
+    "id": 331,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse stad was het centrum van de lakenhandel in de Middeleeuwen en had Jacob van Artevelde als 'Wijze Man'?",
+    "antwoord": "Gent"
+  },
+  {
+    "id": 341,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 2,
+    "vraag": "Welk groen kruid hoort traditioneel bij Vlaamse waterzooi?",
+    "antwoord": "Peterselie (en kervel)"
+  },
+  {
+    "id": 343,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 3,
+    "vraag": "Welk Belgisch bier wordt in spontane vergisting gemaakt en is typisch voor de Zennevallei?",
+    "antwoord": "Lambiek (en geuze)"
+  },
+  {
+    "id": 345,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 1,
+    "vraag": "Welk traditioneel Belgisch gerecht bestaat uit aardappelen, prei en spek (of vis), gestoofd?",
+    "antwoord": "Stoemp / hutsepot (afhankelijk van regio)"
+  },
+  {
+    "id": 349,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 3,
+    "vraag": "Welk gerecht typisch voor Limburg bestaat uit een tarte met fruit en gist-deeg?",
+    "antwoord": "Vlaai (Limburgse vlaai)"
+  },
+  {
+    "id": 382,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke Britse band, opgericht in Manchester in 1991, had broers Liam en Noel Gallagher als zangers?",
+    "antwoord": "Oasis"
+  },
+  {
+    "id": 387,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welk klassiek muziekstuk van Tsjaikovski wordt traditioneel rond Kerst opgevoerd, met o.a. de 'Dans van de Suikerboon-fee'?",
+    "antwoord": "De Notenkraker (The Nutcracker)"
+  },
+  {
+    "id": 391,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke film won in 1998 de Oscar voor beste film en gaat over de Titanic?",
+    "antwoord": "Titanic"
+  },
+  {
+    "id": 398,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke serie speelt zich af in het fictieve Westeros en draait om een 'IJzeren Troon'?",
+    "antwoord": "Game of Thrones"
+  },
+  {
+    "id": 399,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke Coen-broers-film uit 1996 speelt zich af in een Noord-Amerikaanse winter en heeft een verwijzing naar Fargo in de titel?",
+    "antwoord": "Fargo"
+  },
+  {
+    "id": 401,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke Italiaanse regisseur maakte 'Cinema Paradiso' (1988)?",
+    "antwoord": "Giuseppe Tornatore"
+  },
+  {
+    "id": 410,
+    "categorie": "auto_verkeer",
+    "moeilijkheid": 2,
+    "vraag": "Welk Duits automerk heeft vier ringen als logo?",
+    "antwoord": "Audi"
+  },
+  {
+    "id": 423,
+    "categorie": "format_categorie",
+    "moeilijkheid": 2,
+    "vraag": "Welk Vlaams woord hoort niet thuis: koekoek, kapot, ketel, kameel?",
+    "antwoord": "Kameel (dier; rest zijn voorwerpen of toestand)"
+  },
+  {
+    "id": 427,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 2,
+    "vraag": "Welke band kwam eerst: The Beatles of The Rolling Stones?",
+    "antwoord": "The Beatles (opgericht 1960; Rolling Stones 1962)"
+  },
+  {
+    "id": 428,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 1,
+    "vraag": "Welk gebouw is ouder: de Eiffeltoren of het Atomium?",
+    "antwoord": "De Eiffeltoren (1889; Atomium: 1958)"
+  },
+  {
+    "id": 429,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 2,
+    "vraag": "Welke film kwam eerst: 'Titanic' of 'Forrest Gump'?",
+    "antwoord": "Forrest Gump (1994; Titanic: 1997)"
+  },
+  {
+    "id": 430,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 2,
+    "vraag": "Welke gebeurtenis kwam eerst: val van de Berlijnse Muur of de oprichting van de Europese Unie?",
+    "antwoord": "Val van de Berlijnse Muur (1989; EU opgericht door Verdrag van Maastricht 1992/1993)"
+  },
+  {
+    "id": 431,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 1,
+    "vraag": "Welke Belgische koning regeerde eerst: Boudewijn of Albert II?",
+    "antwoord": "Boudewijn (1951-1993; Albert II: 1993-2013)"
+  },
+  {
+    "id": 701,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 3,
+    "vraag": "Welke Vlaamse zanger schreef het lied 'Hoop doet leven', een hymne over doorzettingsvermogen?",
+    "antwoord": "Will Tura"
+  },
+  {
+    "id": 702,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welk personage uit F.C. De Kampioenen wordt gespeeld door Loes Van den Heuvel en is uitbaatster van het cafégebouw?",
+    "antwoord": "Carmen Waterslaeghers"
+  },
+  {
+    "id": 703,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 3,
+    "vraag": "Welke Vlaamse acteur en voormalig zanger Marino Falco speelt Balthazar Boma in F.C. De Kampioenen?",
+    "antwoord": "Marijn Devalck"
+  },
+  {
+    "id": 704,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse acteur speelt Marc Vertongen, de spits met de bijnaam 'kieken', in F.C. De Kampioenen?",
+    "antwoord": "Herman Verbruggen"
+  },
+  {
+    "id": 705,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 3,
+    "vraag": "Welke Vlaamse schrijver, geboren in Antwerpen in 1929, schreef 'De Komst van Joachim Stiller'?",
+    "antwoord": "Hubert Lampo"
+  },
+  {
+    "id": 706,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse acteur speelde detective Vincke in 'De Zaak Alzheimer' (2003)?",
+    "antwoord": "Koen De Bouw"
+  },
+  {
+    "id": 707,
+    "categorie": "vlaamse_cultuur",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische detective-reeks van Pieter Aspe speelt zich af in Brugge en heeft Pieter Van In als hoofdpersoon?",
+    "antwoord": "De Aspe-reeks (verfilmd als 'Aspe')"
+  },
+  {
+    "id": 708,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische koning sneuvelde in 1934 bij een klimongeval in Marche-les-Dames?",
+    "antwoord": "Albert I"
+  },
+  {
+    "id": 709,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 3,
+    "vraag": "Welke gemoderniseerde Belgische grondwet werd in 1993 gestemd waardoor België officieel een federale staat werd?",
+    "antwoord": "De vierde staatshervorming (1993, Sint-Michielsakkoord 1992)"
+  },
+  {
+    "id": 711,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Welke Britse premier werd in 1979 de eerste vrouw in die functie?",
+    "antwoord": "Margaret Thatcher"
+  },
+  {
+    "id": 712,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 3,
+    "vraag": "Welk verdrag uit 1648 maakte een einde aan de Tachtigjarige Oorlog en erkende de Republiek der Nederlanden?",
+    "antwoord": "De Vrede van Westfalen (Verdrag van Münster voor de Nederlanden)"
+  },
+  {
+    "id": 713,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Welke Vlaamse held versloeg samen met Jan Breydel de Franse ridders in de Guldensporenslag van 1302?",
+    "antwoord": "Pieter de Coninck"
+  },
+  {
+    "id": 716,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke Britse rocker, oprichter en frontman van Queen, stierf in november 1991?",
+    "antwoord": "Freddie Mercury"
+  },
+  {
+    "id": 717,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke Britse band, opgericht door Roger Waters en David Gilmour, bracht in 1973 'The Dark Side of the Moon' uit?",
+    "antwoord": "Pink Floyd"
+  },
+  {
+    "id": 718,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke Amerikaanse zangeres, bekend als de 'Queen of Soul', zong 'Respect' (1967)?",
+    "antwoord": "Aretha Franklin"
+  },
+  {
+    "id": 719,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke Amerikaanse rapper gebruikt het alter ego Slim Shady en groeide op in Detroit?",
+    "antwoord": "Eminem"
+  },
+  {
+    "id": 720,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke Britse band schreef 'Smoke on the Water', geïnspireerd op een brand in het Casino van Montreux?",
+    "antwoord": "Deep Purple"
+  },
+  {
+    "id": 721,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke Amerikaanse gitarist speelde een legendarische uitvoering van het Amerikaanse volkslied op Woodstock 1969 en stierf het jaar nadien?",
+    "antwoord": "Jimi Hendrix"
+  },
+  {
+    "id": 722,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke Amerikaanse zanger werd 'the King of Rock 'n' Roll' genoemd en stierf in 1977 in Graceland?",
+    "antwoord": "Elvis Presley"
+  },
+  {
+    "id": 723,
+    "categorie": "muziek_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische zanger schreef 'Le plat pays', een hymne over zijn geboorteland?",
+    "antwoord": "Jacques Brel"
+  },
+  {
+    "id": 724,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke Britse regisseur staat bekend om films als 'Vertigo' en 'Psycho' en deed steeds een cameo in eigen films?",
+    "antwoord": "Alfred Hitchcock"
+  },
+  {
+    "id": 725,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke acteur weigerde in 1973 de Oscar voor zijn rol als Vito Corleone in 'The Godfather'?",
+    "antwoord": "Marlon Brando"
+  },
+  {
+    "id": 726,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke film uit 1942 met Humphrey Bogart eindigt met 'Here's looking at you, kid' en speelt zich af in een Marokkaanse stad?",
+    "antwoord": "Casablanca"
+  },
+  {
+    "id": 727,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke acteur speelde Hannibal Lecter in 'The Silence of the Lambs' (1991)?",
+    "antwoord": "Anthony Hopkins"
+  },
+  {
+    "id": 728,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 2,
+    "vraag": "Welke acteur stierf in 1955 op 24-jarige leeftijd na een auto-ongeluk en speelde in 'Rebel Without a Cause'?",
+    "antwoord": "James Dean"
+  },
+  {
+    "id": 729,
+    "categorie": "film_tv_internationaal",
+    "moeilijkheid": 3,
+    "vraag": "Welke Britse animatiestudio uit Bristol creëerde Wallace & Gromit?",
+    "antwoord": "Aardman Animations"
+  },
+  {
+    "id": 730,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 2,
+    "vraag": "Welke Duitse stad staat bekend om zijn carnaval en heeft een wereldberoemde gotische dom?",
+    "antwoord": "Keulen (Köln)"
+  },
+  {
+    "id": 731,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 3,
+    "vraag": "Welke Beierse stad staat bekend om zijn Christkindlmarkt en Lebkuchen-koeken?",
+    "antwoord": "Neurenberg (Nürnberg)"
+  },
+  {
+    "id": 732,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 2,
+    "vraag": "Welk klein Europees land tussen Frankrijk en Spanje heeft Andorra la Vella als hoofdstad?",
+    "antwoord": "Andorra"
+  },
+  {
+    "id": 733,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 3,
+    "vraag": "Welke berg in Zwitserland staat op 4478 meter en kreeg wereldwijde bekendheid door Toblerone?",
+    "antwoord": "De Matterhorn"
+  },
+  {
+    "id": 734,
+    "categorie": "aardrijkskunde",
+    "moeilijkheid": 2,
+    "vraag": "Welke rivier vormt de natuurlijke grens tussen Spanje en Portugal in het westen?",
+    "antwoord": "De Guadiana (of de Miño in het noorden)"
+  },
+  {
+    "id": 735,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Welke Britse staatsman zei in 1940 'I have nothing to offer but blood, toil, tears and sweat'?",
+    "antwoord": "Winston Churchill"
+  },
+  {
+    "id": 736,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische staatsman onderhandelde mee aan het Verdrag van Rome (1957) en wordt 'vader van Europa' genoemd?",
+    "antwoord": "Paul-Henri Spaak"
+  },
+  {
+    "id": 737,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Welk Brits eiland in de Atlantische Oceaan werd het verbanningsoord van Napoleon na 1815?",
+    "antwoord": "Sint-Helena"
+  },
+  {
+    "id": 738,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Welke Britse koning trad in 1936 af om te trouwen met de gescheiden Amerikaanse Wallis Simpson?",
+    "antwoord": "Edward VIII"
+  },
+  {
+    "id": 739,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische missionaris, gestorven in 1889 op Molokai, werd in 2009 heilig verklaard om zijn werk met melaatsen?",
+    "antwoord": "Pater Damiaan (Damien De Veuster)"
+  },
+  {
+    "id": 740,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 2,
+    "vraag": "Welke Congolese politicus, eerste premier van onafhankelijk Congo in 1960, werd in 1961 vermoord?",
+    "antwoord": "Patrice Lumumba"
+  },
+  {
+    "id": 741,
+    "categorie": "geschiedenis",
+    "moeilijkheid": 3,
+    "vraag": "Welk congres in 1815 herverdeelde Europa na de val van Napoleon?",
+    "antwoord": "Het Congres van Wenen"
+  },
+  {
+    "id": 742,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische judoka won olympisch goud in Moskou 1980 en is anno 2026 nog steeds de enige Belgische man met olympisch judogoud?",
+    "antwoord": "Robert Van de Walle"
+  },
+  {
+    "id": 743,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische judoka won als eerste vrouwelijke Belg olympisch judogoud (Atlanta 1996)?",
+    "antwoord": "Ulla Werbrouck"
+  },
+  {
+    "id": 744,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische zevenkamp-atlete won olympisch goud in zowel Rio 2016 als Tokyo 2020?",
+    "antwoord": "Nafissatou Thiam"
+  },
+  {
+    "id": 745,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische snookerspeler uit Maaseik werd in 2023 als eerste continentale Europeaan wereldkampioen op de Crucible?",
+    "antwoord": "Luca Brecel"
+  },
+  {
+    "id": 746,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "Welke Belgische F1-coureur won in zijn carrière 6 keer de 24 uur van Le Mans?",
+    "antwoord": "Jacky Ickx"
+  },
+  {
+    "id": 747,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische tafeltennisser bereikte de wereldtop en speelde in 7 Olympische Spelen?",
+    "antwoord": "Jean-Michel Saive"
+  },
+  {
+    "id": 748,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische zwemmer won olympisch goud op de 100m schoolslag in Atlanta 1996?",
+    "antwoord": "Frédérik Deburghgraeve"
+  },
+  {
+    "id": 749,
+    "categorie": "sport",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische hockey-ploeg, bijgenaamd 'de Red Lions', won olympisch goud in Tokyo 2020?",
+    "antwoord": "De Red Lions (de Belgische heren-hockeyploeg)"
+  },
+  {
+    "id": 750,
+    "categorie": "sport",
+    "moeilijkheid": 3,
+    "vraag": "Welke Britse autoraceconstructeur won 16 keer het Constructeurskampioenschap F1 en heeft het hoofdkwartier in Woking?",
+    "antwoord": "McLaren"
+  },
+  {
+    "id": 751,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 2,
+    "vraag": "Hoeveel Belgische bieren dragen anno 2026 officieel het 'Authentic Trappist Product'-label?",
+    "antwoord": "Vijf (Chimay, Westmalle, Rochefort, Orval, Westvleteren)"
+  },
+  {
+    "id": 752,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 2,
+    "vraag": "Welke typische Antwerpse koek heeft de vorm van een hand en verwijst naar de legende van Brabo?",
+    "antwoord": "Antwerpse Handjes"
+  },
+  {
+    "id": 753,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische stad in Limburg heeft een Nationaal Jenevermuseum?",
+    "antwoord": "Hasselt"
+  },
+  {
+    "id": 754,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 3,
+    "vraag": "Welk hard honingkoekgebak uit Dinant wordt verkocht in vormen van decoratieve motieven?",
+    "antwoord": "Couque de Dinant"
+  },
+  {
+    "id": 755,
+    "categorie": "eten_drinken",
+    "moeilijkheid": 2,
+    "vraag": "Welk Brussels biermengsel ontstaat door rijping van oude lambiek met kersen?",
+    "antwoord": "Kriek"
+  },
+  {
+    "id": 756,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Welke Noorse extreemrechtse terrorist pleegde in juli 2011 aanslagen in Oslo en op Utøya, met 77 doden?",
+    "antwoord": "Anders Behring Breivik"
+  },
+  {
+    "id": 757,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noorse voetballer, geboren in 2000, speelt anno 2026 bij Manchester City?",
+    "antwoord": "Erling Haaland"
+  },
+  {
+    "id": 758,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Welke Noorse Eurovisie-winnaar zong 'Fairytale' in 2009?",
+    "antwoord": "Alexander Rybak"
+  },
+  {
+    "id": 759,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Welk Noors openluchtmuseum in Oslo bewaart staafkerken en boerderijen en ligt op het schiereiland Bygdøy?",
+    "antwoord": "Norsk Folkemuseum"
+  },
+  {
+    "id": 760,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welk traditioneel Noors snaarinstrument heeft sympathiek-snaren onder de hoofdsnaren?",
+    "antwoord": "De Hardangerviool (Hardingfele)"
+  },
+  {
+    "id": 761,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 3,
+    "vraag": "Welke Noorse regisseur draaide 'The Worst Person in the World' (2021), Oscar-genomineerd?",
+    "antwoord": "Joachim Trier"
+  },
+  {
+    "id": 762,
+    "categorie": "noorwegen_specifiek",
+    "moeilijkheid": 2,
+    "vraag": "Welke Noor was de eerste mens die de Zuidpool bereikte (december 1911)?",
+    "antwoord": "Roald Amundsen"
+  },
+  {
+    "id": 763,
+    "categorie": "auto_verkeer",
+    "moeilijkheid": 3,
+    "vraag": "Welk Frans automerk maakte de iconische 2CV, in de volksmond de 'lelijke eend' genoemd?",
+    "antwoord": "Citroën"
+  },
+  {
+    "id": 764,
+    "categorie": "auto_verkeer",
+    "moeilijkheid": 2,
+    "vraag": "Welk Brits luxe-automerk levert traditioneel auto's aan de Britse koninklijke familie en heeft 'Spirit of Ecstasy' als mascotte?",
+    "antwoord": "Rolls-Royce"
+  },
+  {
+    "id": 765,
+    "categorie": "auto_verkeer",
+    "moeilijkheid": 3,
+    "vraag": "Welke Duitse stad is de thuisbasis van Mercedes-Benz?",
+    "antwoord": "Stuttgart"
+  },
+  {
+    "id": 766,
+    "categorie": "auto_verkeer",
+    "moeilijkheid": 2,
+    "vraag": "Welk Frans automerk heeft een leeuw als logo?",
+    "antwoord": "Peugeot"
+  },
+  {
+    "id": 767,
+    "categorie": "auto_verkeer",
+    "moeilijkheid": 2,
+    "vraag": "Welke F1-coureur evenaarde in 2020 Michael Schumachers record van zeven wereldtitels?",
+    "antwoord": "Lewis Hamilton"
+  },
+  {
+    "id": 768,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 2,
+    "vraag": "Welke man zette eerst voet op de maan: Neil Armstrong of Buzz Aldrin?",
+    "antwoord": "Neil Armstrong"
+  },
+  {
+    "id": 769,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 3,
+    "vraag": "Welke uitvinding kwam eerst: de telefoon van Bell of de gloeilamp van Edison?",
+    "antwoord": "De telefoon (1876; gloeilamp 1879)"
+  },
+  {
+    "id": 770,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 3,
+    "vraag": "Welke wielrenner won eerst zijn eerste Tour de France: Eddy Merckx of Lance Armstrong?",
+    "antwoord": "Eddy Merckx (1969; Armstrong: 1999, later geschrapt)"
+  },
+  {
+    "id": 771,
+    "categorie": "format_chronologie",
+    "moeilijkheid": 2,
+    "vraag": "Welke hogesnelheidstrein kwam eerst in dienst: de TGV of de Shinkansen?",
+    "antwoord": "De Shinkansen (1964; TGV: 1981)"
+  },
+  {
+    "id": 772,
+    "categorie": "format_categorie",
+    "moeilijkheid": 2,
+    "vraag": "Welke wielerklassieker is GEEN monument: Milaan-San Remo, Parijs-Roubaix, Amstel Gold Race, Luik-Bastenaken-Luik?",
+    "antwoord": "Amstel Gold Race"
+  },
+  {
+    "id": 773,
+    "categorie": "format_categorie",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belgische stad is GEEN provinciehoofdstad: Hasselt, Mechelen, Brugge, Namen?",
+    "antwoord": "Mechelen (Antwerpen is provinciehoofdstad van Antwerpen)"
+  },
+  {
+    "id": 774,
+    "categorie": "format_categorie",
+    "moeilijkheid": 3,
+    "vraag": "Welke uitvinding hoort NIET bij Leonardo da Vinci: helikopter-schets, parachute, telefoon, tank-prototype?",
+    "antwoord": "De telefoon (Bell, 1876; Da Vinci leefde 1452-1519)"
+  },
+  {
+    "id": 775,
+    "categorie": "wetenschap_natuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke Belg formuleerde in 1927 de wetenschappelijke basis van wat later de Big Bang-theorie zou heten?",
+    "antwoord": "Georges Lemaître"
+  },
+  {
+    "id": 776,
+    "categorie": "wetenschap_natuur",
+    "moeilijkheid": 3,
+    "vraag": "Welke Britse natuurkundige beschreef in een rolstoel het ontstaan van het heelal en stierf in 2018?",
+    "antwoord": "Stephen Hawking"
+  },
+  {
+    "id": 777,
+    "categorie": "wetenschap_natuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke schaal meet de kracht van een aardbeving op logaritmische wijze?",
+    "antwoord": "De schaal van Richter"
+  },
+  {
+    "id": 778,
+    "categorie": "wetenschap_natuur",
+    "moeilijkheid": 3,
+    "vraag": "Welke Britse wetenschapper publiceerde in 1859 'On the Origin of Species'?",
+    "antwoord": "Charles Darwin"
+  },
+  {
+    "id": 779,
+    "categorie": "wetenschap_natuur",
+    "moeilijkheid": 2,
+    "vraag": "Welke wetenschapper kreeg als eerste twee Nobelprijzen in twee verschillende wetenschappen (1903 natuurkunde, 1911 scheikunde)?",
+    "antwoord": "Marie Curie"
+  }
+];
+
+// ============================================
+// STATE
+// ============================================
+let state = {
+  filteredVragen: [],
+  history: [],          // stack van bekeken vraag-indices (in filteredVragen)
+  historyPos: -1,       // huidige positie in history
+  seenIds: new Set(),   // ids die deze ronde al getoond zijn (voor random-zonder-herhaling)
+  showAnswer: false,
+  selectedCategories: new Set(),
+  selectedDifficulties: new Set([1, 2, 3]),
+};
+
+const CATEGORIE_LABELS = {
+  vlaamse_cultuur: 'Vlaamse cultuur',
+  aardrijkskunde: 'Aardrijkskunde',
+  italie_specifiek: 'Italië',
+  noorwegen_specifiek: 'Noorwegen',
+  geschiedenis: 'Geschiedenis',
+  eten_drinken: 'Eten & drinken',
+  taal_woordenschat: 'Taal',
+  wetenschap_natuur: 'Wetenschap & natuur',
+  sport: 'Sport',
+  muziek_internationaal: 'Muziek',
+  film_tv_internationaal: 'Film & tv',
+  auto_verkeer: 'Auto & verkeer',
+  logica_puzzel: 'Logica & puzzels',
+  format_categorie: 'Hoort niet thuis',
+  format_chronologie: 'Wat kwam eerst',
+  format_schatten: 'Schatten',
+};
+
+// ============================================
+// INIT
+// ============================================
+function init() {
+  // alle categorieën standaard aanvinken
+  const allCats = [...new Set(VRAGEN.map(v => v.categorie))];
+  allCats.forEach(c => state.selectedCategories.add(c));
+
+  buildCategoryChips(allCats);
+  applyFilters();
+
+  // event handlers
+  document.getElementById('stage').addEventListener('click', handleStageClick);
+  document.getElementById('filterBtn').addEventListener('click', openFilters);
+  document.getElementById('closeFilters').addEventListener('click', closeFilters);
+  document.getElementById('applyFilters').addEventListener('click', () => {
+    applyFilters();
+    closeFilters();
+  });
+  document.getElementById('shuffleBtn').addEventListener('click', shuffle);
+  document.getElementById('prevBtn').addEventListener('click', prevVraag);
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    // Reset = nieuwe ronde, terug naar willekeurige eerste vraag
+    shuffle();
+  });
+
+  // keyboard support (handig op desktop)
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('filtersPanel').classList.contains('open')) return;
+    if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      handleStageClick();
+    } else if (e.key === 'ArrowLeft') {
+      prevVraag();
+    }
+  });
+}
+
+function buildCategoryChips(cats) {
+  const container = document.getElementById('categoryChips');
+  container.innerHTML = '';
+  cats.forEach(cat => {
+    const count = VRAGEN.filter(v => v.categorie === cat).length;
+    const btn = document.createElement('button');
+    btn.className = 'pill active';
+    btn.dataset.cat = cat;
+    btn.textContent = `${CATEGORIE_LABELS[cat] || cat} · ${count}`;
+    btn.addEventListener('click', () => {
+      btn.classList.toggle('active');
+      if (btn.classList.contains('active')) state.selectedCategories.add(cat);
+      else state.selectedCategories.delete(cat);
+    });
+    container.appendChild(btn);
+  });
+
+  // moeilijkheid chips
+  document.querySelectorAll('#difficultyChips .pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.classList.toggle('active');
+      const diff = parseInt(btn.dataset.diff);
+      if (btn.classList.contains('active')) state.selectedDifficulties.add(diff);
+      else state.selectedDifficulties.delete(diff);
+    });
+  });
+}
+
+// ============================================
+// FILTER & RENDER
+// ============================================
+function applyFilters() {
+  state.filteredVragen = VRAGEN.filter(v =>
+    state.selectedCategories.has(v.categorie) &&
+    state.selectedDifficulties.has(v.moeilijkheid)
+  );
+  // Reset alles en kies een random eerste vraag
+  state.history = [];
+  state.historyPos = -1;
+  state.seenIds.clear();
+  state.showAnswer = false;
+
+  if (state.filteredVragen.length > 0) {
+    const eersteIdx = pickRandomNext();
+    state.history.push(eersteIdx);
+    state.historyPos = 0;
+    state.seenIds.add(state.filteredVragen[eersteIdx].id);
+  }
+  render();
+}
+
+function render() {
+  const stage = document.getElementById('stage');
+
+  if (state.filteredVragen.length === 0) {
+    stage.innerHTML = '<div class="empty">Geen vragen met deze filters.<br>Pas de filters aan.</div>';
+    document.getElementById('cur').textContent = 0;
+    document.getElementById('tot').textContent = 0;
+    return;
+  }
+
+  const huidigeIdx = state.history[state.historyPos];
+  const vraag = state.filteredVragen[huidigeIdx];
+  document.getElementById('cur').textContent = state.seenIds.size;
+  document.getElementById('tot').textContent = state.filteredVragen.length;
+
+  const catLabel = CATEGORIE_LABELS[vraag.categorie] || vraag.categorie;
+  const diffLabel = ['', 'Makkelijk', 'Medium', 'Lastig'][vraag.moeilijkheid];
+
+  let html = `
+    <div class="meta fade-in">
+      <span class="tag">${catLabel}</span>
+      <span class="tag diff-${vraag.moeilijkheid}">${diffLabel}</span>
+    </div>
+    <div class="card fade-in">
+      <div style="width:100%">
+        <div class="question">${escapeHtml(vraag.vraag)}</div>
+  `;
+
+  if (state.showAnswer) {
+    html += `
+        <div class="answer-block fade-in">
+          <div class="answer-label">Antwoord</div>
+          <div class="answer">${escapeHtml(vraag.antwoord)}</div>
+        </div>
+    `;
+  }
+
+  html += `
+      </div>
+    </div>
+    <div class="hint">${state.showAnswer ? 'tik voor volgende vraag' : 'tik voor antwoord'}</div>
+  `;
+
+  stage.innerHTML = html;
+}
+
+function pickRandomNext() {
+  // Random kies een vraag-index die nog niet getoond is in deze ronde.
+  // Als alle vragen gezien zijn, reset de "seen" set (nieuwe ronde).
+  const total = state.filteredVragen.length;
+  if (total === 0) return -1;
+
+  // Verzamel beschikbare indices
+  let beschikbaar = [];
+  for (let i = 0; i < total; i++) {
+    if (!state.seenIds.has(state.filteredVragen[i].id)) {
+      beschikbaar.push(i);
+    }
+  }
+
+  // Als niets meer beschikbaar, nieuwe ronde starten
+  if (beschikbaar.length === 0) {
+    state.seenIds.clear();
+    for (let i = 0; i < total; i++) beschikbaar.push(i);
+    // Vermijd dat dezelfde vraag direct opnieuw komt
+    const laatstIdx = state.history.length > 0 ? state.history[state.history.length - 1] : -1;
+    if (laatstIdx !== -1 && beschikbaar.length > 1) {
+      beschikbaar = beschikbaar.filter(i => i !== laatstIdx);
+    }
+  }
+
+  const idx = beschikbaar[Math.floor(Math.random() * beschikbaar.length)];
+  return idx;
+}
+
+function handleStageClick() {
+  if (state.filteredVragen.length === 0) return;
+  if (!state.showAnswer) {
+    state.showAnswer = true;
+    render();
+    return;
+  }
+  // Antwoord was zichtbaar → ga naar volgende
+  // Als we ergens midden in de history zitten (na 'vorige'), ga eerst forward door history
+  if (state.historyPos < state.history.length - 1) {
+    state.historyPos++;
+  } else {
+    // Kies een nieuwe random vraag
+    const nextIdx = pickRandomNext();
+    if (nextIdx === -1) return;
+    state.history.push(nextIdx);
+    state.historyPos = state.history.length - 1;
+    state.seenIds.add(state.filteredVragen[nextIdx].id);
+  }
+  state.showAnswer = false;
+  render();
+}
+
+function prevVraag() {
+  if (state.filteredVragen.length === 0) return;
+  if (state.historyPos > 0) {
+    state.historyPos--;
+    state.showAnswer = false;
+    render();
+  }
+}
+
+function shuffle() {
+  // Reset volledig: nieuwe ronde, nieuwe random start
+  state.history = [];
+  state.historyPos = -1;
+  state.seenIds.clear();
+  const eersteIdx = pickRandomNext();
+  if (eersteIdx !== -1) {
+    state.history.push(eersteIdx);
+    state.historyPos = 0;
+    state.seenIds.add(state.filteredVragen[eersteIdx].id);
+  }
+  state.showAnswer = false;
+  render();
+}
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function openFilters() {
+  document.getElementById('filtersPanel').classList.add('open');
+}
+function closeFilters() {
+  document.getElementById('filtersPanel').classList.remove('open');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ============================================
+// GO
+// ============================================
+init();
+</script>
+</body>
+</html>
